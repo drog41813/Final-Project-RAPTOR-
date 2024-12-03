@@ -1,0 +1,27 @@
+---
+title: "test"
+output: html_document
+date: "2024-11-07"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+```
+
+## R Markdown
+
+```{r}
+raptor <- read.csv('/Users/LanDo/School/Semester 7/data sci/Final_Project/modern_RAPTOR_by_team.csv')
+```
+
+
+```{r pressure, echo=FALSE}
+by_team <- raptor |>
+  group_by(season, team) |>
+  summarise(mean(war_reg_season)) |>
+  unite(team, c(team, season))
+
+filter(raptor, season==2014 & team == 'PHO')
+```
+
