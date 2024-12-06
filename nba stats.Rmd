@@ -1,0 +1,133 @@
+---
+title: "Untitled"
+output: html_document
+date: "2024-12-03"
+---
+
+
+```{r global_options, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, eval = TRUE,  
+                      warning = TRUE, message = FALSE, 
+                      fig.align = "center",
+                      R.options = list(max.print=100))
+
+library(tidyverse)
+library(dplyr)
+```
+
+```{r}
+file_list <- c("data_2014.csv", "data_2015.csv", "data_2016.csv", "data_2017.csv", 
+               "data_2018.csv", "data_2019.csv", "data_2020.csv", "data_2021.csv")
+years <- c(2014, 2015, 2016, 2017, 2018, 2019, 2020, 2021)  #years vector
+modified_data_list <- list()
+for (i in 1:length(file_list)) {
+  data <- read.csv(file_list[i], header = FALSE)
+  
+  if(ncol(data) != 2) { # in case data is missing values
+    print("Error detected in file" + file_list[i] + "!")
+  }
+  
+  data$Year <- years[i]
+  colnames(data) <- c("Result", "Name", "Year")
+  modified_data_list[[i]] <- data
+}
+combined_data <- do.call(rbind, modified_data_list)
+combined_data
+
+
+library(dplyr)
+win_list <- c("wins_2014.csv", "wins_2015.csv", "wins_2016.csv", "wins_2017.csv", 
+              "wins_2018.csv", "wins_2019.csv", "wins_2020.csv", "wins_2021.csv")
+years <- c(2014, 2015, 2016, 2017, 2018, 2019, 2020, 2021)
+modified_win_list <- list()
+for (i in 1:length(win_list)) {
+  windata <- read.csv(win_list[i], header = FALSE)
+  if (ncol(windata) == 2) {
+    windata$Year <- years[i]
+    colnames(windata) <- c("Name", "Wins", "Year")
+    modified_win_list[[i]] <- windata
+  }
+}
+combined_wins <- do.call(rbind, modified_win_list)
+combined_wins <- combined_wins |>
+  filter(grepl("\\*", Name)) |>
+  mutate(Name = gsub("\\*$", "", Name))
+print(combined_wins)
+
+team_lookup <- data.frame(
+  Team = c("San Antonio Spurs", "Oklahoma City Thunder", "Miami Heat", "Indiana Pacers",
+                "Los Angeles Clippers", "Portland Trail Blazers", "Brooklyn Nets", "Washington Wizards",
+                "Golden State Warriors", "Dallas Mavericks", "Memphis Grizzlies", "Toronto Raptors",
+                "Houston Rockets", "Atlanta Hawks", "Chicago Bulls", "Charlotte Bobcats",
+                "Cleveland Cavaliers", "Boston Celtics", "Detroit Pistons", "Milwaukee Bucks",
+                "New Orleans Pelicans", "Sacramento Kings", "Los Angeles Lakers", "Philadelphia 76ers",
+                "Minnesota Timberwolves", "Utah Jazz", "Denver Nuggets", "New York Knicks", "Phoenix Suns", "Orlando Magic"),
+  abbreviation = c("SAS", "OKC", "MIA", "IND", "LAC", "POR", "BKN", "WAS", "GSW", "DAL", "MEM",
+                   "TOR", "HOU", "ATL", "CHI", "CHA", "CLE", "BOS", "DET", "MIL", "NOP", "SAC",
+                   "LAL", "PHI", "MIN", "UTA", "DEN", "NYK", "PHO", "ORL"), 
+  Conference = c("West", "West", "East", "East", "West", "West", "East", "East", "West", "West", "West", "East", "West", "East", "East", "East", "East", "East", "East", "East", "West", "West", "West", "East", "West", "West", "West", "East", "West", "East")
+)
+
+combined_wins <- combined_wins |>
+  left_join(team_lookup, by = c("Name" = "Team")) |>
+  mutate(Name = abbreviation) |>
+  select(-abbreviation)
+
+combined_data <- combined_data |>
+  left_join(team_lookup, by = c("Name" = "Team")) |>
+  mutate(Name = abbreviation) |>
+  select(-abbreviation)
+
+combined_data <- combined_data |>
+  transform(Name_Year = paste(Name, Year, sep = "_")) |>
+  select(-Name, -Year)
+combined_wins <- combined_wins |>
+  transform(Name_Year = paste(Name, Year, sep = "_")) |>
+  select(-Name, -Year)
+
+WAR <- read.csv("C:/Users/danie/OneDrive/Documents/WAR.csv")
+WAR <- subset(WAR, war_reg_season != 0)
+combined_WAR <- WAR |>
+  transform(Name_Year = paste(team, year, sep = "_")) |>
+  select(-team, -year) |>
+  group_by(Name_Year) |>
+  summarise(Average_WAR = mean(war_reg_season, na.rm = TRUE))
+
+combined_result <- merge(combined_wins, combined_data, by = "Name_Year")
+combined_result <- combined_result[, c("Name_Year", "Result", "Wins")]
+finaldata <- merge(combined_result, combined_WAR, by = "Name_Year")
+
+# Incorporate True Shooting Percentage (TS%)
+ts_data <- read.csv("C:/Users/danie/OneDrive/Documents/TS.csv")  # Adjust the file path if needed
+ts_data <- ts_data |>
+  mutate(Team = gsub("\\*$", "", Team)) |>  # Remove asterisks from Team names
+  left_join(team_lookup, by = "Team")  # Add abbreviations from team_lookup
+
+# Extract Abbreviation and Year from Name_Year in finaldata
+finaldata <- finaldata |>
+  mutate(
+    Abbreviation = sub("_.*$", "", Name_Year),  # Extract abbreviation
+    Year = as.numeric(sub(".*_", "", Name_Year))  # Extract year
+  )
+
+# Merge TS% into finaldata
+finaldata <- finaldata |>
+  left_join(ts_data |> select(abbreviation, Year, TS.), 
+            by = c("Abbreviation" = "abbreviation", "Year" = "Year")) |>
+  rename(True_Shooting_Percentage = TS.)
+
+finaldata <- finaldata |>
+  mutate(Abbreviation = sub("_.*$", "", Name_Year)) 
+
+library(dplyr)
+
+finaldata <- finaldata |>
+  left_join(team_lookup |> select(abbreviation, Conference), 
+            by = c("Abbreviation" = "abbreviation"))
+# Drop unnecessary columns
+finaldata <- finaldata |>
+  select(-Abbreviation, -Year)
+
+finaldata
+
+```
