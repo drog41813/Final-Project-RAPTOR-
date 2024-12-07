@@ -133,6 +133,7 @@ combined_data
 
 The BasketballReference work is done. Now, we can add the RAPTOR dataset. The first step is getting aggregate raptor score by team.
 ```{r}
+raptor <- read_csv("modern_RAPTOR_by_team.csv")
 by_team <- raptor |>
   group_by(season, team) |>
   summarise(composite_WAR = mean(war_reg_season)) |>
@@ -241,8 +242,7 @@ accuracy_results
 ntree_5 and ntree_20 seem to have the highest accuracy, but ntree_5 is more simple. By Occam's razor, we'll use ntree_5 over ntree_20.
 
 ```{r}
-# Assuming you have a trained model, for example, the model with ntree = 10
-rf_model_ntree_5 <- results[["ntree_5"]]  # Replace with your specific model
+rf_model_ntree_5 <- results[["ntree_5"]]
 
 # Make predictions on the test set
 predictions <- predict(rf_model_ntree_5, newdata = test)
@@ -261,27 +261,43 @@ print(cm)
 
 Use a tuning grid to find the best performing model
 ```{r}
+# Define the parameter grid for KNN
+# 'k' is the number of neighbors to consider
+knn_grid <- expand.grid(k = seq(3, 15, by = 2))  # Odd values of 'k' to avoid ties
+
+# Define the cross-validation method
+control <- trainControl(method = "cv", number = 10)  # 10-fold cross-validation
+
+# Train the KNN model
 knn_model <- train(
-  result ~ .,
-  data = train,
-  method = "knn",
-  trControl = trainControl(method = "cv"), # cross-validation
-  tuneGrid = data.frame(k= c(3, 5, 7)) # grid of k values to tune
+  Result ~.,                # Replace 'Wins' with relevant predictors
+  data = train,                 # Training dataset
+  method = "knn",               # Specify the KNN method
+  tuneGrid = knn_grid,          # Grid of hyperparameters to tune
+  trControl = control           # Cross-validation control
 )
 
-knn_model # view trained model
+# View the results of the tuned model
+print(knn_model)
+
+# Best parameter (optimal 'k')
+print(knn_model$bestTune)
+
+# Evaluate the model's performance
+knn_model_results <- knn_model$results
+print(knn_model_results)
+
 ```
 
-``` {r}
-best_model <- knn3(
-  result ~ .,
-  data = train,
-  k = knn_model$bestTune$k
-)
-```
-
-
+k=13 has the best performance. Let's now apply it to test set.
 
 ```{r}
-predictions <- predict(best_model, test, type = 'class')
+# Make predictions on the test set
+knn_predictions <- predict(knn_model, newdata = test)
+
+# Evaluate performance on the test set
+confusion_matrix <- confusionMatrix(knn_predictions, test$Result)
+print(confusion_matrix)
 ```
+
+
