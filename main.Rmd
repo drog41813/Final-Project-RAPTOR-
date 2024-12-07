@@ -1,5 +1,5 @@
 ---
-title: "main"
+title: "Utilizing RAPTOR Score to Predict NBA Playoff Performance"
 output: html_document
 date: "2024-11-07"
 ---
@@ -10,16 +10,17 @@ library(tidyverse)
 library(dplyr)
 ```
 
-## R Markdown
+## Introduction
+
+This project leverages data from FiveThirtyEight’s RAPTOR score dataset, a modern metric designed to evaluate the efficacy of NBA players. Unlike older metrics such as CARMELO and DRAYMOND, RAPTOR incorporates advanced player-tracking and play-by-play data, emphasizing players' contributions to modern NBA schemes. Key attributes of this metric include its ability to account for shot creation, floor spacing, and defensive intensity, offering a more comprehensive evaluation of a player's impact on their team.
+
+In addition to RAPTOR scores, the prepared dataset integrates team-level performance data, including overall season records, sourced from Basketball Reference. This combination of player- and team-level metrics allows for a detailed exploration of factors influencing playoff success, defined by the furthest round a team achieves in the postseason. 
+
+The primary objective of this analysis is to develop predictive models to forecast playoff performance of NBA teams. This question is pertinent as much of the existing literature is concerned with predicting the outcome of an individual game - not postseason success. By addressing this question, the project aims to provide insights into the relationship between advanced player metrics and team success, with implications for team-building strategies and performance forecasting in professional basketball.
 
 # Data collection
 
-The RAPTOR dataset is retrieved from 538's RAPTOR dataset (insert link). This was downloaded to the specified path shown below.
-
-```{r}
-raptor <- read.csv('/Users/LanDo/School/Semester 7/data sci/Final_Project/modern_RAPTOR_by_team.csv')
-```
-
+The RAPTOR dataset is retrieved from 538's RAPTOR dataset (insert link).
 The remaining data was retrieved from BasketballReference, which is a database of various basketball data including wins, true shooting percentage, and post-season record.
 
 # Data Manipulation and Merging
@@ -91,7 +92,7 @@ ts_data <- ts_data |>
   rename(Name = Team) |>  # Rename 'Name' to 'Team'
   mutate(Name = gsub("\\*$", "", Name))  # Remove asterisks from 'Team' column
 
-ts_data
+head(ts_data)
 ```
 
 
@@ -140,7 +141,7 @@ by_team <- raptor |>
   rename(Year = season,
          Name = team)
 
-by_team
+head(by_team)
 ```
 
 These values can't be used alone. Let's take a look at a particularly ergregious example:
@@ -152,7 +153,7 @@ filter(raptor, season==2014 & team == 'PHO')
 This is one of the worst teams in the past 20 years, but have a very high average RAPTOR score. This underscores the importance of using multiple metrics for a situation as complex as this. Let's combine everything now.
 ``` {r}
 combined_data <- inner_join(combined_data, by_team, by = c('Name', 'Year'))
-combined_data
+head(combined_data)
 
 ```
 
@@ -177,8 +178,8 @@ split <- sample.split(prepared_set$Result, SplitRatio = 0.8) # Define the split 
 train <- subset(prepared_set, split == TRUE) # Training set
 test <- subset(prepared_set, split == FALSE) # Test set
 
-train # View the training set
-test # View the test set
+head(train) # View the training set
+head(test) # View the test set
 ```
 
 ### Model Training
@@ -251,10 +252,29 @@ predictions <- predict(rf_model_ntree_5, newdata = test)
 actual <- test$Result
 
 # Generate the confusion matrix
-cm <- confusionMatrix(predictions, actual)
+confusion_matrix <- confusionMatrix(knn_predictions, test$Result)
 
-# Print the confusion matrix
-print(cm)
+# Extract the confusion matrix table
+cm_table <- as.data.frame(confusion_matrix$table)
+
+# Rename columns for clarity
+colnames(cm_table) <- c("Actual", "Predicted", "Freq")
+
+# Create the heat map
+ggplot(data = cm_table, aes(x = Predicted, y = Actual, fill = Freq)) +
+  geom_tile(color = "white") +
+  scale_fill_gradient(low = "white", high = "steelblue") +
+  labs(
+    title = "Confusion Matrix Heat Map",
+    x = "Predicted Label",
+    y = "Actual Label",
+    fill = "Frequency"
+  ) +
+  theme_minimal() +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    plot.title = element_text(hjust = 0.5)
+  )
 ```
 
 # KNN
@@ -295,9 +315,30 @@ k=13 has the best performance. Let's now apply it to test set.
 # Make predictions on the test set
 knn_predictions <- predict(knn_model, newdata = test)
 
-# Evaluate performance on the test set
+# Generate the confusion matrix
 confusion_matrix <- confusionMatrix(knn_predictions, test$Result)
-print(confusion_matrix)
+
+# Extract the confusion matrix table
+cm_table <- as.data.frame(confusion_matrix$table)
+
+# Rename columns for clarity
+colnames(cm_table) <- c("Actual", "Predicted", "Freq")
+
+# Create the heat map
+ggplot(data = cm_table, aes(x = Predicted, y = Actual, fill = Freq)) +
+  geom_tile(color = "white") +
+  scale_fill_gradient(low = "white", high = "steelblue") +
+  labs(
+    title = "Confusion Matrix Heat Map",
+    x = "Predicted Label",
+    y = "Actual Label",
+    fill = "Frequency"
+  ) +
+  theme_minimal() +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    plot.title = element_text(hjust = 0.5)
+  )
 ```
 
 
