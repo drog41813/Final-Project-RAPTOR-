@@ -18,6 +18,8 @@ In addition to RAPTOR scores, the prepared dataset integrates team-level perform
 
 The primary objective of this analysis is to develop predictive models to forecast playoff performance of NBA teams. This question is pertinent as much of the existing literature is concerned with predicting the outcome of an individual game - not postseason success. By addressing this question, the project aims to provide insights into the relationship between advanced player metrics and team success, with implications for team-building strategies and performance forecasting in professional basketball.
 
+![Stephen Curry](https://media.cnn.com/api/v1/images/stellar/prod/2024-04-10t054204z-1645757524-mt1usatoday22988403-rtrmadp-3-nba-golden-state-warriors-at-los-angeles-lakers.JPG?c=16x9&q=h_833,w_1480,c_fill)
+
 # Literature review of existing methods 
 
 Matthew Houde created a baseline model where Gaussian Naïve Bayes was evaluated as the strongest model of predicting whether a team wins a given matchup. This is based on a variety of team aggregate stats including win percentage, field goal percentage, and 3-point shooting percentage (Houde). This yielded a 65% accuracy score.
@@ -349,5 +351,16 @@ ggplot(data = cm_table, aes(x = Predicted, y = Actual, fill = Freq)) +
     plot.title = element_text(hjust = 0.5)
   )
 ```
+Histogram of class distribution
+```{r}
+rounds <- c('Round 1', 'Round 2', 'Conference Final', 'Final')
 
-
+# Create the bar plot
+ggplot(prepared_set) +
+  geom_bar(fill = '#1D428A', aes(x = Result)) +
+  scale_x_discrete(limits = rounds) +
+  theme_minimal() +
+  labs(
+    title = 'Class Distribution of Playoff Results',
+  )
+```
