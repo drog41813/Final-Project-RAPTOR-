@@ -1,5 +1,5 @@
 ---
-title: "test"
+title: "main"
 output: html_document
 date: "2024-11-07"
 ---
@@ -12,17 +12,276 @@ library(dplyr)
 
 ## R Markdown
 
+# Data collection
+
+The RAPTOR dataset is retrieved from 538's RAPTOR dataset (insert link). This was downloaded to the specified path shown below.
+
 ```{r}
 raptor <- read.csv('/Users/LanDo/School/Semester 7/data sci/Final_Project/modern_RAPTOR_by_team.csv')
 ```
 
+The remaining data was retrieved from BasketballReference, which is a database of various basketball data including wins, true shooting percentage, and post-season record.
 
-```{r pressure, echo=FALSE}
+# Data Manipulation and Merging
+
+We start by loading in all the playoff performance data, binding them together, and changing ranks to actual outcomes
+```{r}
+#Reading in rank files
+file_list <- c("data_2014.csv", "data_2015.csv", "data_2016.csv", "data_2017.csv", 
+               "data_2018.csv", "data_2019.csv", "data_2020.csv", "data_2021.csv")
+years <- c(2014, 2015, 2016, 2017, 2018, 2019, 2020, 2021)  #years vector
+modified_data_list <- list()
+for (i in 1:length(file_list)) {
+  data <- read.csv(file.path('./nbacsv', file_list[i]), header = FALSE)
+  
+  if(ncol(data) != 2) { # in case data is missing values
+    print("Error detected in file" + file_list[i] + "!")
+  }
+  
+  data$Year <- years[i]
+  colnames(data) <- c("Result", "Name", "Year")
+  modified_data_list[[i]] <- data
+}
+playoff_data <- do.call(rbind, modified_data_list)
+
+# changing rank names
+playoff_data <- playoff_data |>
+  mutate(Result = case_when(
+    Result == 1 | Result == 2 ~ "Final",
+    Result == 3 | Result == 4 ~ "Conference Final",
+    Result >= 5 & Result <= 8 ~ "Round 2",
+    Result >= 9 & Result <= 16 ~ "Round 1"
+  ))
+
+head(playoff_data)
+```
+
+Reading in regular season stats
+```{r}
+# reading in win files
+win_list <- c("wins_2014.csv", "wins_2015.csv", "wins_2016.csv", "wins_2017.csv", 
+              "wins_2018.csv", "wins_2019.csv", "wins_2020.csv", "wins_2021.csv")
+years <- c(2014, 2015, 2016, 2017, 2018, 2019, 2020, 2021)
+modified_win_list <- list()
+for (i in 1:length(win_list)) {
+  windata <- read.csv(file.path('nbacsv', win_list[i]), header = FALSE)
+  if (ncol(windata) == 2) {
+    windata$Year <- years[i]
+    colnames(windata) <- c("Name", "Wins", "Year")
+    modified_win_list[[i]] <- windata
+  }
+}
+
+# combine files
+combined_wins <- do.call(rbind, modified_win_list)
+#removing wins that don't make it to playoffs, which are teams without an *
+combined_wins <- combined_wins |>
+  filter(grepl("\\*", Name)) |>
+  mutate(Name = gsub("\\*$", "", Name))
+
+head(combined_wins)
+```
+
+We also want true shooting percentage, which will be another predictor we will use.
+```{r}
+# Incorporate True Shooting
+ts_data <- read.csv("./nbacsv/TS.csv")  # Adjust file path
+
+ts_data <- ts_data |> 
+  rename(Name = Team) |>  # Rename 'Name' to 'Team'
+  mutate(Name = gsub("\\*$", "", Name))  # Remove asterisks from 'Team' column
+
+ts_data
+```
+
+
+Now we join the three datasets on name and year
+``` {r}
+combined_data <- inner_join(combined_wins, playoff_data, by = c('Name', 'Year'))
+combined_data <- inner_join(combined_data, ts_data, by = c('Name', 'Year'))
+combined_data
+```
+
+Because the RAPTOR dataset and the other datasets have different team names, we need to alter them to fit. The following is a dictionary for each team name. We also want to include conference, so we add that in too.
+```{r}
+#dataframe for team name, abbreviations, and conference
+team_lookup <- data.frame(
+  Team = c("San Antonio Spurs", "Oklahoma City Thunder", "Miami Heat", "Indiana Pacers",
+           "Los Angeles Clippers", "Portland Trail Blazers", "Brooklyn Nets", "Washington Wizards",
+           "Golden State Warriors", "Dallas Mavericks", "Memphis Grizzlies", "Toronto Raptors",
+           "Houston Rockets", "Atlanta Hawks", "Chicago Bulls", "Charlotte Hornets",
+           "Cleveland Cavaliers", "Boston Celtics", "Detroit Pistons", "Milwaukee Bucks",
+           "New Orleans Pelicans", "Sacramento Kings", "Los Angeles Lakers", "Philadelphia 76ers",
+           "Minnesota Timberwolves", "Utah Jazz", "Denver Nuggets", "New York Knicks", "Phoenix Suns", "Orlando Magic", "Charlotte Bobcats"),
+  abbreviation = c("SAS", "OKC", "MIA", "IND", "LAC", "POR", "BKN", "WAS", "GSW", "DAL", "MEM",
+                   "TOR", "HOU", "ATL", "CHI", "CHA", "CLE", "BOS", "DET", "MIL", "NOP", "SAC",
+                   "LAL", "PHI", "MIN", "UTA", "DEN", "NYK", "PHO", "ORL", "CHB"), 
+  Conference = c("West", "West", "East", "East", "West", "West", "East", "East", "West", "West", "West", "East", "West", "East", "East", "East", "East", "East", "East", "East", "West", "West", "West", "East", "West", "West", "West", "East", "West", "East", "East")
+)
+```
+
+Performing join and renaming teams to abbreviations:
+```{r}
+#changing team name to abbreviation in win dataset
+combined_data <- combined_data |>
+  left_join(team_lookup, by = c("Name" = "Team")) |>
+  mutate(Name = abbreviation) |>
+  select(-abbreviation)
+
+combined_data
+```
+
+The BasketballReference work is done. Now, we can add the RAPTOR dataset. The first step is getting aggregate raptor score by team.
+```{r}
 by_team <- raptor |>
   group_by(season, team) |>
-  summarise(mean(war_reg_season)) |>
-  unite(team, c(team, season))
+  summarise(composite_WAR = mean(war_reg_season)) |>
+  rename(Year = season,
+         Name = team)
 
+by_team
+```
+
+These values can't be used alone. Let's take a look at a particularly ergregious example:
+
+``` {r}
 filter(raptor, season==2014 & team == 'PHO')
 ```
 
+This is one of the worst teams in the past 20 years, but have a very high average RAPTOR score. This underscores the importance of using multiple metrics for a situation as complex as this. Let's combine everything now.
+``` {r}
+combined_data <- inner_join(combined_data, by_team, by = c('Name', 'Year'))
+combined_data
+
+```
+
+# data manipulation
+convert conference to boolean for use in KNN, remove team name
+
+``` {r}
+prepared_set <- combined_data |>
+  mutate(conference_east = ifelse(Conference == 'East', T, F), # mutate conference to boolean
+         Result = as.factor(Result)) |> # need to convert to factor for models
+  select(Wins, Result, conference_east, composite_WAR, TS.)
+
+head(prepared_set)
+```
+
+Now split the data into train and test sets
+``` {r}
+library(caTools) # For splitting the dataset
+set.seed(5) # Set seed for reproducibility
+
+split <- sample.split(prepared_set$Result, SplitRatio = 0.8) # Define the split ratio
+train <- subset(prepared_set, split == TRUE) # Training set
+test <- subset(prepared_set, split == FALSE) # Test set
+
+train # View the training set
+test # View the test set
+```
+
+### Model Training
+
+```{r}
+library(caret)
+set.seed(123)
+```
+
+# Random Forest
+```{r}
+library(randomForest)
+
+# Define parameters for Random Forest models
+ntree_values <- c(5, 10, 15, 20, 50)
+rf_grid <- expand.grid(mtry = 1:(ncol(train)-1))  # Tune 'mtry' parameter from 1 to 4
+control <- trainControl(method = "cv", number = 10)  # 10-fold cross-validation
+
+# Initialize a list to store results
+results <- list()
+
+# Loop over each ntree value, train Random Forest, and store results
+for (ntree in ntree_values) {
+  # Train the Random Forest model using caret with hyperparameter tuning
+  rf_model <- train(
+    Result ~.,            # Formula for target and predictor
+    data = train,             # Training data
+    method = "rf",            # Random Forest method
+    tuneGrid = rf_grid,       # Hyperparameter tuning grid for 'mtry'
+    trControl = control,      # Cross-validation setup
+    ntree = ntree             # Number of trees in the forest
+  )
+  
+  # Store the model's results in the list
+  results[[paste("ntree", ntree, sep = "_")]] <- rf_model
+}
+
+# Extract and display the tuning results for each model
+lapply(results, function(x) x$results)
+
+```
+Test it out!
+```{r}
+# Loop through each model in the results list and test on the test set
+accuracy_results <- sapply(results, function(model) {
+  # Make predictions on the test set
+  predictions <- predict(model, newdata = test)
+  
+  # Compare predictions to actual values
+  actual <- test$Result
+  
+  # Calculate the accuracy
+  accuracy <- sum(predictions == actual) / length(actual)
+  
+  return(accuracy)
+})
+
+# Display the accuracy for each model
+accuracy_results
+```
+ntree_5 and ntree_20 seem to have the highest accuracy, but ntree_5 is more simple. By Occam's razor, we'll use ntree_5 over ntree_20.
+
+```{r}
+# Assuming you have a trained model, for example, the model with ntree = 10
+rf_model_ntree_5 <- results[["ntree_5"]]  # Replace with your specific model
+
+# Make predictions on the test set
+predictions <- predict(rf_model_ntree_5, newdata = test)
+
+# Actual values from the test set
+actual <- test$Result
+
+# Generate the confusion matrix
+cm <- confusionMatrix(predictions, actual)
+
+# Print the confusion matrix
+print(cm)
+```
+
+# KNN
+
+Use a tuning grid to find the best performing model
+```{r}
+knn_model <- train(
+  result ~ .,
+  data = train,
+  method = "knn",
+  trControl = trainControl(method = "cv"), # cross-validation
+  tuneGrid = data.frame(k= c(3, 5, 7)) # grid of k values to tune
+)
+
+knn_model # view trained model
+```
+
+``` {r}
+best_model <- knn3(
+  result ~ .,
+  data = train,
+  k = knn_model$bestTune$k
+)
+```
+
+
+
+```{r}
+predictions <- predict(best_model, test, type = 'class')
+```
