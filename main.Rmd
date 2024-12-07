@@ -10,7 +10,7 @@ library(tidyverse)
 library(dplyr)
 ```
 
-## Introduction
+# Introduction
 
 This project leverages data from FiveThirtyEight’s RAPTOR score dataset, a modern metric designed to evaluate the efficacy of NBA players. Unlike older metrics such as CARMELO and DRAYMOND, RAPTOR incorporates advanced player-tracking and play-by-play data, emphasizing players' contributions to modern NBA schemes. Key attributes of this metric include its ability to account for shot creation, floor spacing, and defensive intensity, offering a more comprehensive evaluation of a player's impact on their team.
 
@@ -18,12 +18,20 @@ In addition to RAPTOR scores, the prepared dataset integrates team-level perform
 
 The primary objective of this analysis is to develop predictive models to forecast playoff performance of NBA teams. This question is pertinent as much of the existing literature is concerned with predicting the outcome of an individual game - not postseason success. By addressing this question, the project aims to provide insights into the relationship between advanced player metrics and team success, with implications for team-building strategies and performance forecasting in professional basketball.
 
+# Literature review of existing methods 
+
+Matthew Houde created a baseline model where Gaussian Naïve Bayes was evaluated as the strongest model of predicting whether a team wins a given matchup. This is based on a variety of team aggregate stats including win percentage, field goal percentage, and 3-point shooting percentage (Houde). This yielded a 65% accuracy score.
+
+Jake Kandell conducted a unique method where a z score for ELO was calculated for each team, then a logistic model was applied to the calculated z score and other statistics including win percentage, field goal percentage, and 3-point shooting percentage. This method yielded an astounding 70% accuracy. 
+
+Although this method is effective, its implementation is incredibly sophisticated and outside the scope of the class. Thus, for the sake of simplicity, a z-score approach was not used for this analysis.
+
 # Data collection
 
 The RAPTOR dataset is retrieved from 538's RAPTOR dataset (insert link).
 The remaining data was retrieved from BasketballReference, which is a database of various basketball data including wins, true shooting percentage, and post-season record.
 
-# Data Manipulation and Merging
+### Data Manipulation and Merging
 
 We start by loading in all the playoff performance data, binding them together, and changing ranks to actual outcomes
 ```{r}
@@ -100,7 +108,7 @@ Now we join the three datasets on name and year
 ``` {r}
 combined_data <- inner_join(combined_wins, playoff_data, by = c('Name', 'Year'))
 combined_data <- inner_join(combined_data, ts_data, by = c('Name', 'Year'))
-combined_data
+head(combined_data)
 ```
 
 Because the RAPTOR dataset and the other datasets have different team names, we need to alter them to fit. The following is a dictionary for each team name. We also want to include conference, so we add that in too.
@@ -129,7 +137,8 @@ combined_data <- combined_data |>
   mutate(Name = abbreviation) |>
   select(-abbreviation)
 
-combined_data
+head(combined_data)
+
 ```
 
 The BasketballReference work is done. Now, we can add the RAPTOR dataset. The first step is getting aggregate raptor score by team.
@@ -157,7 +166,7 @@ head(combined_data)
 
 ```
 
-# data manipulation
+# Data Manipulation
 convert conference to boolean for use in KNN, remove team name
 
 ``` {r}
@@ -182,7 +191,7 @@ head(train) # View the training set
 head(test) # View the test set
 ```
 
-### Model Training
+# Model Training
 
 ```{r}
 library(caret)
@@ -246,13 +255,13 @@ ntree_5 and ntree_20 seem to have the highest accuracy, but ntree_5 is more simp
 rf_model_ntree_5 <- results[["ntree_5"]]
 
 # Make predictions on the test set
-predictions <- predict(rf_model_ntree_5, newdata = test)
+rf_predictions <- predict(rf_model_ntree_5, newdata = test)
 
 # Actual values from the test set
 actual <- test$Result
 
 # Generate the confusion matrix
-confusion_matrix <- confusionMatrix(knn_predictions, test$Result)
+confusion_matrix <- confusionMatrix(rf_predictions, test$Result)
 
 # Extract the confusion matrix table
 cm_table <- as.data.frame(confusion_matrix$table)
