@@ -246,13 +246,13 @@ ntree_5 and ntree_20 seem to have the highest accuracy, but ntree_5 is more simp
 rf_model_ntree_5 <- results[["ntree_5"]]
 
 # Make predictions on the test set
-predictions <- predict(rf_model_ntree_5, newdata = test)
+rf_predictions <- predict(rf_model_ntree_5, newdata = test)
 
 # Actual values from the test set
 actual <- test$Result
 
 # Generate the confusion matrix
-confusion_matrix <- confusionMatrix(knn_predictions, test$Result)
+confusion_matrix <- confusionMatrix(rf_predictions, test$Result)
 
 # Extract the confusion matrix table
 cm_table <- as.data.frame(confusion_matrix$table)
@@ -275,6 +275,88 @@ ggplot(data = cm_table, aes(x = Predicted, y = Actual, fill = Freq)) +
     axis.text.x = element_text(angle = 45, hjust = 1),
     plot.title = element_text(hjust = 0.5)
   )
+```
+
+```{r}
+# Load required libraries
+library(caTools)  # For data splitting
+library(rpart)    # For decision tree
+library(rpart.plot) # For decision tree visualization
+
+# Set seed for reproducibility
+set.seed(5)
+
+# Split the data into training and test sets
+split <- sample.split(prepared_set$Result, SplitRatio = 0.8) # Define the split ratio
+train <- subset(prepared_set, split == TRUE) # Training set
+test <- subset(prepared_set, split == FALSE) # Test set
+
+# Train the decision tree on the training set
+decision_tree_model <- rpart(
+  Result ~ .,              # Formula for target and predictors
+  data = train,            # Training dataset
+  method = "class",        # Classification method
+  control = rpart.control(cp = 0.01) # Complexity parameter for pruning
+)
+
+# Visualize the decision tree
+rpart.plot(decision_tree_model, type = 2, extra = 102, under = TRUE)
+
+# Predict on the test set
+dt_predictions <- predict(decision_tree_model, newdata = test, type = "class")
+
+# Evaluate predictions with a confusion matrix
+confusion_matrix <- table(Predicted = dt_predictions, Actual = test$Result)
+
+# Print the confusion matrix
+print(confusion_matrix)
+
+
+```
+
+```{r}
+
+# Install and load required packages
+install.packages("rpart.plot")
+
+library(rpart)
+library(rpart.plot)
+library(caret)
+library(ggplot2)
+
+# Create a raw decision tree model
+dt_model <- rpart(
+  Result ~ .,          # Formula (target variable ~ predictors)
+  data = train,        # Training dataset
+  method = "class"     # Classification problem
+)
+
+# Print the decision tree structure
+print(dt_model)
+
+# Visualize the decision tree
+rpart.plot(dt_model, main = "Decision Tree for NBA Results")
+
+# Make predictions on the test set
+dt_predictions <- predict(dt_model, newdata = test, type = "class")
+
+# Generate the confusion matrix
+confusion_matrix_dt <- confusionMatrix(dt_predictions, test$Result)
+
+# Display the confusion matrix
+print(confusion_matrix_dt)
+
+# Convert confusion matrix to a data frame for ggplot
+cm_df <- as.data.frame(confusion_matrix)
+
+# Plot the confusion matrix as a heatmap
+ggplot(cm_df, aes(x = Actual, y = Predicted, fill = Freq)) +
+  geom_tile() +  # Create tiles for heatmap
+  scale_fill_gradient(low = "white", high = "blue") +  # Color gradient
+  theme_minimal() +  # Clean theme
+  labs(title = "Confusion Matrix Heatmap", x = "Actual", y = "Predicted") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))  # Rotate x-axis labels for better visibility
+
 ```
 
 # KNN
