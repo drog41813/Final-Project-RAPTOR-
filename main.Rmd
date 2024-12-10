@@ -9,6 +9,8 @@ library(tidyverse)
 library(dplyr)
 ```
 
+**Lan Do, Lilliana Forrest, Swara Kale, Daniel Lee**
+
 ## Introduction
 
 This project leverages data from FiveThirtyEight’s RAPTOR score dataset, a modern metric designed to evaluate the efficacy of NBA players. Unlike older metrics such as CARMELO and DRAYMOND, RAPTOR incorporates advanced player-tracking and play-by-play data, emphasizing players' contributions to modern NBA schemes. Key attributes of this metric include its ability to account for shot creation, floor spacing, and defensive intensity, offering a more comprehensive evaluation of a player's impact on their team.
@@ -17,7 +19,7 @@ In addition to RAPTOR scores, the prepared dataset integrates team-level perform
 
 The primary objective of this analysis is to develop predictive models to forecast playoff performance of NBA teams. This question is pertinent as much of the existing literature is concerned with predicting the outcome of an individual game - not postseason success. By addressing this question, the project aims to provide insights into the relationship between advanced player metrics and team success, with implications for team-building strategies and performance forecasting in professional basketball.
 
-## Literature review of existing methods 
+### Literature review of existing methods 
 
 Matthew Houde created a baseline model where Gaussian Naïve Bayes was evaluated as the strongest model of predicting whether a team wins a given matchup. This is based on a variety of team aggregate stats including win percentage, field goal percentage, and 3-point shooting percentage (Houde). This yielded a 65% accuracy score.
 
@@ -27,7 +29,7 @@ Although this method is effective, its implementation is incredibly sophisticate
 
 ## Data Preparation
 
-The RAPTOR dataset is retrieved from [[538's RAPTOR dataset](https://github.com/fivethirtyeight/data/tree/master/nba-raptor). The remaining data was retrieved from BasketballReference, which is a database of various basketball data including wins, true shooting percentage, and post-season record. On Basketball Reference, we used the Total Stats and Advanced Stats datasets from the 2014-2022 seasons and cleared out all extraneous variables. On the Basketball Reference site, we were able to delete other variables such as free throw attempt and offensive rebounds, leaving the Total Stats dataset with only team name and rank, while the Advanced Stats dataset was left with team name and wins. The data for each year in Total Stats was added to a .txt file, which were all read into R. A year column was added to each dataset to keep track of what season was being referenced when the datasets per season were merged into one large dataset containing data from 2014 up to 2022. The same process was repeated for the Advanced Stats dataset, and the teams without asterisks next to their names were removed from the dataset as they did not continue to the regular season and would not be ranked in the top 16 teams. The asterisks were then removed from their names.
+The RAPTOR dataset is retrieved from [538's RAPTOR dataset](https://github.com/fivethirtyeight/data/tree/master/nba-raptor). The remaining data was retrieved from BasketballReference, which is a database of various basketball data including wins, true shooting percentage, and post-season record. On Basketball Reference, we used the Total Stats and Advanced Stats datasets from the 2014-2022 seasons and cleared out all extraneous variables. On the Basketball Reference site, we were able to delete other variables such as free throw attempt and offensive rebounds, leaving the Total Stats dataset with only team name and rank, while the Advanced Stats dataset was left with team name and wins. The data for each year in Total Stats was added to a .txt file, which were all read into R. A year column was added to each dataset to keep track of what season was being referenced when the datasets per season were merged into one large dataset containing data from 2014 up to 2022. The same process was repeated for the Advanced Stats dataset, and the teams without asterisks next to their names were removed from the dataset as they did not continue to the regular season and would not be ranked in the top 16 teams. The asterisks were then removed from their names.
 
 The datasets were then merged on the Name and Year variables. To change the names of the teams from full length to their three letter NBA abbreviations, a data frame was created that mapped the full length team names to their respective abbreviations. The season year was then added as a suffix to the team abbreviation to keep track of year more precisely and assist with joining to WAR data later on.
 
@@ -38,8 +40,8 @@ Finally, the data from Advanced Stats, Total Stats, and the 538 GitHub were all 
 
 ### Data Manipulation and Merging
 
-We start by loading in all the playoff performance data, binding them together, and changing ranks to actual outcomes
-```{r include=FALSE}
+We start by loading in all the playoff performance data, binding them together, and changing ranks to actual outcomes.  
+```{r echo=FALSE}
 #Reading in rank files
 file_list <- c("data_2014.csv", "data_2015.csv", "data_2016.csv", "data_2017.csv", 
                "data_2018.csv", "data_2019.csv", "data_2020.csv", "data_2021.csv")
@@ -66,10 +68,12 @@ playoff_data <- playoff_data |>
     Result >= 5 & Result <= 8 ~ "Round 2",
     Result >= 9 & Result <= 16 ~ "Round 1"
   ))
-```
 
-Reading in regular season stats
-```{r include=FALSE}
+head(playoff_data)
+```
+We then read in regular season wins.
+
+```{r echo=FALSE}
 # reading in win files
 win_list <- c("wins_2014.csv", "wins_2015.csv", "wins_2016.csv", "wins_2017.csv", 
               "wins_2018.csv", "wins_2019.csv", "wins_2020.csv", "wins_2021.csv")
@@ -91,10 +95,12 @@ combined_wins <- combined_wins |>
   filter(grepl("\\*", Name)) |>
   mutate(Name = gsub("\\*$", "", Name))
 
+head(combined_wins)
 ```
 
-We also want true shooting percentage, which will be another predictor we will use.
-```{r include=FALSE}
+Finally, we read in true shooting percentages for each team.
+
+```{r echo=FALSE}
 # Incorporate True Shooting
 ts_data <- read.csv("./nbacsv/TS.csv")  # Adjust file path
 
@@ -113,7 +119,7 @@ head(combined_data)
 ```
 
 Because the RAPTOR dataset and the other datasets have different team names, we need to alter them to fit. The following is a dictionary for each team name. We also want to include conference, so we add that in too.
-```{r include=FALSE}
+```{r echo=FALSE}
 #dataframe for team name, abbreviations, and conference
 team_lookup <- data.frame(
   Team = c("San Antonio Spurs", "Oklahoma City Thunder", "Miami Heat", "Indiana Pacers",
@@ -128,6 +134,8 @@ team_lookup <- data.frame(
                    "LAL", "PHI", "MIN", "UTA", "DEN", "NYK", "PHO", "ORL", "CHB"), 
   Conference = c("West", "West", "East", "East", "West", "West", "East", "East", "West", "West", "West", "East", "West", "East", "East", "East", "East", "East", "East", "East", "West", "West", "West", "East", "West", "West", "West", "East", "West", "East", "East")
 )
+
+head(team_lookup)
 ```
 
 Performing join and renaming teams to abbreviations:
@@ -140,33 +148,29 @@ combined_data <- combined_data |>
 head(combined_data)
 ```
 
-The BasketballReference work is done. Now, we can add the RAPTOR dataset. The first step is getting aggregate raptor score by team.
+The BasketballReference work is done. Now, we can add the RAPTOR dataset and get aggregate RAPTOR score by team.
 ```{r include=FALSE}
 raptor <- read_csv("modern_RAPTOR_by_team.csv")
 by_team <- raptor |>
-  group_by(season, team) |>
-  summarise(composite_WAR = mean(war_reg_season)) |>
+  group_by(season, team, show_col_types = F) |>
+  summarise(composite_WAR = mean(war_reg_season), show_col_types = FALSE) |>
   rename(Year = season,
          Name = team)
+```
+
+```{r}
 head(by_team)
 ```
 
-These values can't be used alone. Let's take a look at a particularly egregious example:
-
-``` {r include=FALSE}
-filter(raptor, season==2014 & team == 'PHO')
-```
-
-This is one of the worst teams in the past 20 years, but have a very high average RAPTOR score. This underscores the importance of using multiple metrics for a situation as complex as this. Let's combine everything now.
+Now we combine everything by name and year.
 ``` {r echo=FALSE}
 combined_data <- inner_join(combined_data, by_team, by = c('Name', 'Year'))
 head(combined_data)
 ```
 
 ### Data Manipulation for Model Use
-convert conference to boolean for use in KNN, remove team name
-
-``` {r include=FALSE}
+For ease of use in our models, we convert conference to a boolean, factor 'Result', and remove team name. We also split the dataset into a training and test set with a split factor of 0.8. 
+``` {r echo=FALSE}
 prepared_set <- combined_data |>
   mutate(conference_east = ifelse(Conference == 'East', T, F), # mutate conference to boolean
          Result = as.factor(Result)) |> # need to convert to factor for models
@@ -175,8 +179,8 @@ prepared_set <- combined_data |>
 head(prepared_set)
 ```
 
-Now split the data into train and test sets
 ``` {r include=FALSE}
+### Split into training and test sets!
 library(caTools) # For splitting the dataset
 set.seed(5) # Set seed for reproducibility
 
@@ -189,7 +193,7 @@ head(test) # View the test set
 ```
 
 ## Model Training and Validation
-We chose to utilize a Random Forest model because it was one of the few classifier models we were familiar with. It is also known to be robust on a wide range of datasets. We opted to optimize ntree in order to find the best-performing model. Given the relatively smaller size of our dataset, we opted to use smaller values for our tree and mtry
+We chose to utilize a Random Forest and KNN model because they were some of the few classifier models we were familiar with. 
 
 ```{r include=FALSE}
 library(caret)
@@ -197,13 +201,13 @@ set.seed(123)
 ```
 
 ### Random Forest
-We chose to utilize a Random Forest model because it was one of the few classifier models we were familiar with. It is also known to be robust on a wide range of datasets. We opted to optimize ntree in order to find the best-performing model. Given the relatively smaller size of our dataset, we opted to use smaller values for our tree and mtry.
+Random Forest is known to be robust on a wide range of datasets. We opted to optimize ntree in order to find the best-performing model. Given the relatively smaller size of our dataset, we opted to use smaller values for our tree and mtry.
 
 ```{r include=FALSE}
 library(randomForest)
 ```
 
-```{r echo=FALSE}
+```{r include=FALSE}
 # Define parameters for Random Forest models
 ntree_values <- c(5, 10, 15, 20, 50)
 rf_grid <- expand.grid(mtry = 1:(ncol(train)-1))  # Tune 'mtry' parameter from 1 to 4
@@ -224,35 +228,33 @@ for (ntree in ntree_values) {
     ntree = ntree             # Number of trees in the forest
   )
   
+  # Adding ntree as a column to results data
+  rf_model$results$ntree <- ntree
+  
   # Store the model's results in the list
   results[[paste("ntree", ntree, sep = "_")]] <- rf_model
 }
 
-# Extract and display the tuning results for each model
-lapply(results, function(x) x$results)
+# Combine results into a single data frame
+all_results <- do.call(rbind, lapply(results, function(model) model$results))
+
 ```
 
-Test it out!
+Here we see the results of the Random Forest model on the test set. 
 ```{r echo=FALSE}
-# Loop through each model in the results list and test on the test set
-accuracy_results <- sapply(results, function(model) {
-  # Make predictions on the test set
-  predictions <- predict(model, newdata = test)
-  # Compare predictions to actual values
-  actual <- test$Result
-  # Calculate the accuracy
-  accuracy <- sum(predictions == actual) / length(actual)
-  return(accuracy)
-})
-# Display the accuracy for each model
-accuracy_results
+# Find the row corresponding to the best-performing combination
+best_result <- all_results[which.max(all_results$Accuracy), ]
+
+# Display the best hyperparameters and performance
+cat("Best Hyperparameters and Performance:\n")
+print(best_result)
 ```
-ntree_5 and ntree_20 seem to have the highest accuracy, but ntree_5 is more simple. By Occam's razor, we'll use ntree_5 over ntree_20.
+ntree_5 mtry 1 appears to have the best accuracy.
 
 ### Decision Tree
 
-We decided to use a Decision Tree model because we found that our Random Forest results were below our expectations. Unlike Random Forest, the decision tree only uses one predictor at a time during each split whereas, in a random forest model, it uses the random combination of our predictors. Our decision tree displays the percentage of teams that advance to each round.
-```{r echo=FALSE}
+After viewing the results for the random forest, we decided to try a Decision Tree model because we found that our Random Forest results were below our expectations. Unlike Random Forest, the decision tree only uses one predictor at a time during each split whereas in a random forest model, it uses the random combination of our predictors. Our decision tree displays the percentage of teams that advance to each round.
+```{r include=FALSE}
 library(rpart)    # For decision tree
 library(rpart.plot) # For decision tree visualization
 # Train the decision tree on the training set
@@ -261,16 +263,20 @@ decision_tree_model <- rpart(
   data = train,            # Training dataset
   method = "class"         # Classification method
 )
+```
+The following is a visualization of the tree. This result will be discussed further in the Results and Discussion Section.
+```{r, echo = F, fig.align="center", fig.width=5, fig.height=3}
 # Visualize the decision tree
+print('Variable Importance:')
+print(decision_tree_model$variable.importance)
 rpart.plot(decision_tree_model)
 ```
-
-The model has been trained. We now visualize the tree.
+<center>**Figure 1: **Decision Tree Diagram</center>
 
 ### KNN
-We decided to use the k-nearest neighbor (KNN) model due to its ability to work well with smaller datasets. KNN utilizes the similarity of data points to help predict playoff performance. To optimize this model, we also used the caret packaged due to the built-in cross-validation. Using a grid search, we found that k = 13 was the most effective choice as it ensured that the model was more stabilized and achieved the best performance.
-Use a tuning grid to find the best performing model
-```{r include=FALSE}
+KNN utilizes the similarity of data points to help predict playoff performance. We aimed to optimize k utilizng a grid search.
+
+```{r echo=FALSE}
 # Define the parameter grid for KNN
 # 'k' is the number of neighbors to consider
 knn_grid <- expand.grid(k = seq(3, 15, by = 2))  # Odd values of 'k' to avoid ties
@@ -286,7 +292,9 @@ knn_model <- train(
   tuneGrid = knn_grid,          # Grid of hyperparameters to tune
   trControl = control           # Cross-validation control
 )
+```
 
+``` {r echo = FALSE}
 # View the results of the tuned model
 print(knn_model)
 
@@ -295,16 +303,18 @@ print(knn_model$bestTune)
 
 # Evaluate the model's performance
 knn_model_results <- knn_model$results
-print(knn_model_results)
 ```
 
-k=13 has the best performance. Let's now apply it to test set.
+k=5 has the best performance.
 
 ## Results and Discussion
-The accuracy of the random forest model on the test set was _____ and the accuracy of the KNN model on the test set was ____. While the Random Forest model had somewhat higher accuracy than the KNN model, neither did very well overall. In comparison, previous models attempting to predict binary outcomes, such as whether a team will win or lose, achieved approximately 60% accuracy. Although these models are not directly comparable to our method, their increased accuracy highlights our models' weaknesses in this context.
 
-Random Forest Confusion Matrix
+The accuracy of the random forest model on the test set was 36.84% and the accuracy of the KNN model on the test set was also 36.84%. While the Random Forest model had somewhat higher accuracy than the KNN model, neither did very well overall. In comparison, previous models attempting to predict binary outcomes, such as whether a team will win or lose, achieved approximately 60% accuracy. Although these models are not directly comparable to our method, their increased accuracy highlights our models' weaknesses in this context.
+
+The Random Forest performs with an accuracy of 36.84%. This indicates that the model did not generalize well. 
+
 ```{r echo=FALSE}
+# Extract the full model for ntree = 5
 rf_model_ntree_5 <- results[["ntree_5"]]
 
 # Make predictions on the test set
@@ -313,8 +323,18 @@ rf_predictions <- predict(rf_model_ntree_5, newdata = test)
 # Actual values from the test set
 actual <- test$Result
 
+# Get accuracy metrics
+accuracy <- sum(rf_predictions == actual) / length(actual)
+cat("Random Forest Test Set Accuracy:", accuracy)
+
+```
+
+The decision tree performed even worse than the Random Forest model. Examining the decision tree diagram in **Fig. 1** provides some insight as to the quality of our variables. The only somewhat reliable predictor of team performance was composite_WAR. This indicates that the variable choice had a significant detriment on the quality of the models.
+
+```{r echo=FALSE, fig.align="center", fig.width=5, fig.height=3}
+# Print the confusion matrix
 # Generate the confusion matrix
-confusion_matrix_RF <- confusionMatrix(rf_predictions, test$Result)
+confusion_matrix_RF <- confusionMatrix(rf_predictions, actual)
 
 # Extract the confusion matrix table
 cm_table_RF <- as.data.frame(confusion_matrix_RF$table)
@@ -339,17 +359,20 @@ ggplot(data = cm_table_RF, aes(x = Predicted, y = Actual, fill = Freq)) +
   )
 ```
 
-```{r include=FALSE}
-# Print the confusion matrix
-print(confusion_matrix_RF)
-```
+<center>**Figure 2: **Random Forest Confusion Matrix</center>
 
-Decision Tree Confusion Matrix
-```{r echo=FALSE}
+```{r, echo=FALSE}
 # Predict on the test set
 dt_predictions <- predict(decision_tree_model, newdata = test, type = "class")
 
-confusion_matrix_DT <- confusionMatrix(dt_predictions, test$Result)
+# Get accuracy metrics
+accuracy <- sum(dt_predictions == actual) / length(actual)
+cat("Decision Tree Test Set Accuracy:", accuracy)
+```
+
+```{r, echo = FALSE, fig.align="center", fig.width=5, fig.height=3}
+# Make confusion matrix
+confusion_matrix_DT <- confusionMatrix(dt_predictions, actual)
 
 # Extract the confusion matrix table
 cm_table_DT <- as.data.frame(confusion_matrix_DT$table)
@@ -374,18 +397,23 @@ ggplot(data = cm_table_DT, aes(x = Predicted, y = Actual, fill = Freq)) +
   )
 ```
 
-```{r include=FALSE}
-# Print the confusion matrix
-print(confusion_matrix_DT)
-```
+<center>**Figure 3: **Decision Tree Confusion Matrix</center>
 
-KNN Confusion Matrix
-```{r echo=FALSE}
+The KNN performed as well as the Random Forest model.
+
+```{r, echo=FALSE}
 # Make predictions on the test set
 knn_predictions <- predict(knn_model, newdata = test)
 
+# Get accuracy metrics
+accuracy <- sum(knn_predictions == actual) / length(actual)
+cat("KNN Test Set Accuracy:", accuracy)
+
+```
+
+```{r, echo = FALSE, fig.align="center", fig.width=5, fig.height=3}
 # Generate the confusion matrix
-confusion_matrix_KNN <- confusionMatrix(knn_predictions, test$Result)
+confusion_matrix_KNN <- confusionMatrix(knn_predictions, actual)
 
 # Extract the confusion matrix table
 cm_table_KNN <- as.data.frame(confusion_matrix_KNN$table)
@@ -410,13 +438,15 @@ ggplot(data = cm_table_KNN, aes(x = Predicted, y = Actual, fill = Freq)) +
   )
 ```
 
-```{r include=FALSE}
-# Print the confusion matrix
-print(confusion_matrix_KNN)
-```
+<center>**Figure 4: **KNN Confusion Matrix</center>
 
-Histogram of class distribution 
-```{r echo=FALSE}
+There are some key weaknesses of our analysis: size constraints of the dataset, class imbalance, model selection, and variable selection.
+
+The size and constraints of the dataset, which only contained roughly 100 data points, had a substantial impact on the conclusions of our investigation. A relatively small sample size will inevitably cause the model to not train properly as the model will not have enough data to train on. Unfortunately, this is not something that can be directly fixed (e.g. by harvesting more data), as RAPTOR data is only available from 2014-2021 and is not currently maintained. 
+
+The data's significant class imbalance presented a significant issue. Following each round of a given playoff season, half of teams are removed. **Fig. 5** clearly shows this trend. Because ‘Round 1’ teams are overrepresented, the model will poorly classify the minority classes (e.g. ‘finals’ teams). To fix this, techniques like oversampling the minority class or undersampling the majority class could be attempted in future iterations.
+
+```{r echo=FALSE, fig.align="center", fig.width=5, fig.height=3}
 rounds <- c('Round 1', 'Round 2', 'Conference Final', 'Final')
 
 # Create the bar plot
@@ -429,11 +459,7 @@ ggplot(prepared_set) +
   )
 ```
 
-There are some key weaknesses of our analysis: size constraints of the dataset, class imbalance, model selection, and variable selection.
-
-The size and constraints of the dataset, which only contained roughly 100 data points, had a substantial impact on the conclusions of our investigation. A relatively small sample size will inevitably cause the model to not train properly as the model will not have enough data to train on. Unfortunately, this is not something that can be directly fixed (e.g. by harvesting more data), as RAPTOR data is only available from 2014-2021 and is not currently maintained. 
-
-The data's significant class imbalance presented a significant issue. Following each round of a given playoff season, half of teams are removed. Fig. ____ clearly shows this trend. Because ‘Round 1’ teams are overrepresented, the model will poorly classify the minority classes (e.g. ‘finals’ teams). To fix this, techniques like oversampling the minority class or undersampling the majority class could be attempted in future iterations.
+<center>**Figure 5:** Histogram of class distribution</center>
 
 Our models used categorical classifiers rather than ordinal categorical classifiers, which could be more representative of the NBA playoffs' evolution. The selection of models, such as Random Forest and KNN, may not have been ideal. Multinomial models or gradient boosting methods (GBMs) may have produced better results. 
 Predicting NBA playoff outcomes is inherently complex and cannot be effectively reduced to just five variables. We also assumed that the RAPTOR data, a subjective assessment of player performance, was reliable, and that Average WAR accurately represented a team's overall success. However, these assumptions may not hold true in practice, thus introducing extra flaws into the analysis.
@@ -453,8 +479,12 @@ Lan primarily focused on creating the KNN model to interpret the results across 
 
 Lilliana created the Random Forest model as an alternative to the KNN model and the Decision Tree model to create predictions on the playoff performance of the NBA teams. She also wrote the code for the Confusion matrices and heatmap associated with all the models to provide a visual representation of the inaccuracies our models contained in predicting the outcomes of NBA playoff season games.
 
-References:
+<center> **References** </center>
+
 Kandell, Jake. “JakeKandell/NBA-Predict.” GitHub, GitHub, 2019, github.com/JakeKandell/NBA-Predict.
+
 Houde, Matthew. “Predicting the Outcome of NBA Games Predicting the Outcome of NBA Games”. Bryant Digital Repository, Bryant University, 2021. 
+
 Basketball Reference: basketball-reference.com
+
 RAPTOR score: https://github.com/fivethirtyeight/data/tree/master/nba-raptor
